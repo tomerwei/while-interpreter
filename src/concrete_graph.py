@@ -6,15 +6,12 @@ from pygraphviz import *
 def next_edge_get(state,ptr):
     var_map   =   state['map']
      
-    from opSemantics import next_node_get
+    from opSemantics import next_concrete_node_get
     from opSemantics import nstar_relation_name_get
     n_ptr = nstar_relation_name_get()    
-    next_node = next_node_get(ptr,n_ptr, state)
+    next_node = next_concrete_node_get(ptr,n_ptr, state)
     print 'next_edge_get', ptr,next_node
-    if next_node != None:
-        return var_map[next_node]
-    else:
-        return 'null'
+    return next_node
         
 
 def draw_graph(prefix, state):

@@ -16,8 +16,7 @@ def general_stmt(stmt,state):
         comma_stmt(stmt,state)
     else:
         print 'Graph Before statement:', stmt
-        draw_graph( 'file1', state )
-        raw_input("Press Enter to continue...")
+        draw_graph( 'file1', state )        
         
         if curStmt == 'x:=y':
             ass_stmt(stmt,state)
@@ -94,12 +93,10 @@ def ass_new_ptr(stmt,state):
     # map x to node
     interpretation_set(state, x, concrete_intp )
     
-            
-    
         
 def p_next_plus(state,n_ptr,s,t):    
-    rel_st =  nstar_pointer_value_get(state,s,t)    
-    is_eq  =  is_equal_intrepretation(state,s,t)
+    rel_st =  nstar_concrete_value_get(state, s, t)        
+    is_eq  =  is_same_concrete_node(state,s,t)
     result =  rel_st and (not is_eq)
     return result 
 
@@ -110,41 +107,43 @@ def p_next_plus(state,n_ptr,s,t):
 def p_next(state,n_ptr,s,t):    
     result      =  p_next_plus(state,n_ptr,s,t)
     if result:
-        rvars       = state_all_real_vars_get(state)
+        c_nodes   =  concrete_nodes_get(state)
         #print 's and t are different' , rvars, s ,t 
-        for gamma in rvars:
+        for gamma in c_nodes:
             lhs       =  p_next_plus(state,n_ptr,s,gamma)
-            rhs       =  nstar_pointer_value_get(state,gamma,t)            
+            rhs       =  nstar_concrete_value_get(state,t,gamma)            
             lhs_implies_rhs = (not lhs) or rhs
             result    = result and lhs_implies_rhs                   
             if not result:
-                print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
+                #print lhs,rhs, lhs_implies_rhs, result
+                #print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
                 return False
-            else:
-                print 'passed for s=',s,'t-is minimal node=',t,'gamma=',gamma
+            #else:
+                #print 'passed for s=',s,'t-is minimal node=',t,'gamma=',gamma                
         return True
     return False
 
 
 
-def next_node_get(y,n_ptr,state):
+def next_concrete_node_get(y,n_ptr,state):
     #y     = stmt.subtrees[1].root
     #n_ptr = stmt.subtrees[2].root
 #    if (y == 'i') |  (y == 'h'):
 #        raw_input("DEbug...")
-        
     if is_equal_intrepretation(state, y, 'null'):
-        print 'GOT HERE!'
+        print 'Variable',y,' is pointing to null.'
         return None
+    
+    cy = interpretation_get(state, y)    
         
-    print 'next_node_get', y, n_ptr
-    rvars  = state_all_real_vars_get(state)
-    for alpha in rvars:        
-        is_minimal = p_next(state,n_ptr,y,alpha)
+    #print 'next_node_get of ', y, cy
+    c_nodes  = concrete_nodes_get(state)
+    for alpha in c_nodes:        
+        is_minimal = p_next(state,n_ptr,cy,alpha)
         #please note that their could be only **one** alpha that is true
         if is_minimal:
             #copy_relation_values(state,n_ptr,alpha,x)
-            print 'found minimal, y=',y,'alpha=',alpha    
+            #print 'found minimal for cy=',cy,'. Minimal is alpha=',alpha    
             return alpha
 #    if (y == 'i') |  (y == 'h'):
 #        raw_input("DEbug End...")        
@@ -155,20 +154,17 @@ def next_node_get(y,n_ptr,state):
 #then we find the minimal var among them - e.g the one
 #who is not reachable by others.
 def rhs_next_ptr_stmt(stmt,state):
-    print 'rhs_next_ptr_stmt', stmt
+    #print 'rhs_next_ptr_stmt', stmt
     x     = stmt.subtrees[0].root
     y     = stmt.subtrees[1].root    
     n_ptr = nstar_relation_name_get()
-    alpha = next_node_get( y,n_ptr,state )
+    alpha = next_concrete_node_get( y,n_ptr,state )
     #print x,y,alpha
     if alpha != None:    
-        copy_relation_values(state,n_ptr,alpha,x)
-        
-        alpha_intp = interpretation_get(state,alpha)
-        interpretation_set(state,x,alpha_intp)
+        interpretation_set(state,x,alpha)
         
     else:
-        print 'Next node not existent ', x, alpha
+        print 'rhs_next_ptr_stmt: Next node is null ', x, alpha
                                 
 
 # x.next := null
@@ -208,7 +204,7 @@ def lhs_next_ptr_ass_stmt(stmt,state):
     yc   = interpretation_get(state, y)
     
     if n_yx:        
-        print stmt, 'Closing circle! state is:' , state
+        print stmt, 'lhs_next_ptr_ass_stmt: Closing circle! Exiting. state is:' , state
         raise SystemExit    
     for r in rel:
         a = r[0]
@@ -224,27 +220,7 @@ def get_state(state,relation_name,key):
     #print 'n*:', key, rel[key]
     return rel[key]    
     
-    
-# n(a,b) = n[a][b] = true\false    
-def update_state(state,relation_name,value,*args):
-    rel = state[relation_name]
-    rel[args] = value    
-    print 'updated', rel, args, 'to', value
-    
-                
-def copy_relation_values(state,rel_name,from_v,to_v):
-    print 'copy rel values', rel_name,from_v,to_v
-    rel = state[rel_name]
-    for r in rel:
-        s = r[0]
-        t = r[1]
-        if s == from_v:
-            to = to_v, t
-            rel[to] = rel[r]
-        elif t == from_v:
-            to = s, to_v
-            rel[to] = rel[r]
-                                    
+  
 
 #--------------------------------------
 #  Relations API
@@ -336,12 +312,16 @@ def interpretation_set(state,x,p):
 # TODO: create new interpretation in case of x:=new
 
     
+
+def is_same_concrete_node(state,intrp_x,intrp_y):
+    return intrp_x == intrp_y
+
 #returns true iff concrete interpretation of x
 #equal concrete interpretation of y
 def is_equal_intrepretation(state,x,y):
     intrp_x = interpretation_get(state,x)
     intrp_y = interpretation_get(state,y)
-    return intrp_x == intrp_y
+    return is_same_concrete_node(state,intrp_x,intrp_y)
 
 
 def concrete_nodes_get(state):
