@@ -33,8 +33,6 @@ def draw_graph(prefix, state):
         concrete_n = var_map[v]
         g.add_edge(v,concrete_n, color = 'green' )        
         chk = is_equal_intrepretation(state, v, 'null' )
-        print 'is_eq', chk, v
-                    
         if  not chk:                    
             next_concrete_n = next_edge_get(state,v)
             if next_concrete_n != None:

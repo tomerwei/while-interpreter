@@ -17,6 +17,7 @@ def general_stmt(stmt,state):
     else:
         print 'Graph Before statement:', stmt
         draw_graph( 'file1', state )
+        raw_input("Press Enter to continue...")
         
         if curStmt == 'x:=y':
             ass_stmt(stmt,state)
@@ -44,10 +45,8 @@ def general_stmt(stmt,state):
 
 
 def comma_stmt(stmt,state):
-    #print 'comma_stmt', stmt
     for i in stmt.subtrees:
         general_stmt(i,state)
-    #print 'comma end'
 
 
 def if_stmt(stmt,state):
@@ -68,7 +67,6 @@ def if_stmt(stmt,state):
 
 
 def while_stmt(stmt,state):
-    print 'while stmt', stmt
     while_cond   = stmt.subtrees[0]
     #the invariant I is in between here
     print 'the invariant I:=', stmt.subtrees[1]
@@ -80,20 +78,8 @@ def while_stmt(stmt,state):
 
 # x := y
 def ass_stmt(stmt,state):    
-    x   = stmt.subtrees[0].root
-    y   = stmt.subtrees[1].root
-    rel = nstar_relation_map_get(state)
-    for r in rel:
-        a     = r[0]
-        b     = r[1]
-        rel_r = nstar_relation_tuple_value_get(state, r)        
-        if y == b:
-            i  = a                        
-            nstar_relation_value_set(state, i, x, rel_r) #rel[ix] = rel[r]            
-        elif y == a:
-            i  = b          
-            nstar_relation_value_set(state, x, i, rel_r) #rel[xi] = rel[r]
-    
+    x      = stmt.subtrees[0].root
+    y      = stmt.subtrees[1].root
     y_intp = interpretation_get(state,y)
     interpretation_set(state,x,y_intp)
            
@@ -103,42 +89,34 @@ def ass_stmt(stmt,state):
 def ass_new_ptr(stmt,state):
     #print 'new ptr: ', stmt
     x   = stmt.subtrees[0].root    
-    rel = nstar_relation_map_get(state)##TODO need to traverse all states
-    for r in rel:
-        a = r[0]
-        b = r[1]
-        if ((x == a) or (x == b)) and ( a != b ):
-            nstar_relation_tuple_value_set(state, r, False)#rel[r] = False
+    # create new concrete node, which is false to all
+    concrete_intp   = create_node(state)
+    # map x to node
+    interpretation_set(state, x, concrete_intp )
+    
             
     
         
-def p_next_plus(state,n_ptr,s,t):
-    rel    =  state[n_ptr]
-    st     =  s, t    
+def p_next_plus(state,n_ptr,s,t):    
+    rel_st =  nstar_pointer_value_get(state,s,t)    
     is_eq  =  is_equal_intrepretation(state,s,t)
-    result =  rel[st] and (not is_eq)
+    result =  rel_st and (not is_eq)
     return result 
 
 
 # a->b is equiv to (~a)|b
 # if t is the minimal in relation to y: return true
 # else return false
-def p_next(state,n_ptr,s,t):
-    rel         =  state[n_ptr]
+def p_next(state,n_ptr,s,t):    
     result      =  p_next_plus(state,n_ptr,s,t)
     if result:
         rvars       = state_all_real_vars_get(state)
-        print 's and t are different' , rvars, s ,t 
+        #print 's and t are different' , rvars, s ,t 
         for gamma in rvars:
-            lhs       = p_next_plus(state,n_ptr,s,gamma)
-            print lhs, 'pnext plus' , s, gamma
-            gamma_t   = gamma, t            
-            rhs       = rel[gamma_t]
-            #rhs       = rel[t_gamma]
+            lhs       =  p_next_plus(state,n_ptr,s,gamma)
+            rhs       =  nstar_pointer_value_get(state,gamma,t)            
             lhs_implies_rhs = (not lhs) or rhs
-            #lhs_implies_rhs = (lhs and rhs) or ((not lhs)) 
-            result    = result and lhs_implies_rhs
-            print 'lhs ', lhs,'rhs ',rhs, gamma_t       
+            result    = result and lhs_implies_rhs                   
             if not result:
                 print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
                 return False
@@ -177,7 +155,7 @@ def next_node_get(y,n_ptr,state):
 #then we find the minimal var among them - e.g the one
 #who is not reachable by others.
 def rhs_next_ptr_stmt(stmt,state):
-    print stmt
+    print 'rhs_next_ptr_stmt', stmt
     x     = stmt.subtrees[0].root
     y     = stmt.subtrees[1].root    
     n_ptr = nstar_relation_name_get()
@@ -204,27 +182,30 @@ def lhs_next_ptr_null_stmt(stmt,state):
     #not good enough, next field is of type adt.tree.Tree
     #use str(type(next_field)) to find out
     #rel_name  =  stmt.subtrees[1].root
-    n_ptr = nstar_relation_name_get()    
+    n_ptr     = nstar_relation_name_get()    
     rel       = relation_map_get(state, n_ptr)
+    cx        = interpretation_get(state, x)
     for r in rel:
         a = r[0]
         b = r[1]
-        rel_ax = nstar_relation_value_get(state, a, x)
-        rel_bx = nstar_relation_value_get(state, b, x)
-        rel_r  = nstar_relation_tuple_value_get(state, r)
+        rel_ax = nstar_concrete_value_get(state, a, cx)
+        rel_bx = nstar_concrete_value_get(state, b, cx)
+        rel_r  = nstar_concrete_value_get(state, r)
         res    = rel_r and ( (not rel_ax) or rel_bx )
-        nstar_relation_tuple_value_set(state, r, res )#rel[r] = rel_r & ( ~rel_ax | rel_bx )         
+        nstar_concrete_tuple_value_set(state, r, res )#rel[r] = rel_r & ( ~rel_ax | rel_bx )         
         
                 
              
 # x.next := y       
 def lhs_next_ptr_ass_stmt(stmt,state):
     x = stmt.subtrees[0].root
-    n = stmt.subtrees[1].root
-    y = stmt.subtrees[2].root
+    #n = stmt.subtrees[1].root
+    y = stmt.subtrees[2].root    
+    rel  = nstar_relation_map_get(state)   
+    n_yx = nstar_pointer_value_get(state,y,x)
     
-    rel  = state[n]   
-    n_yx = nstar_relation_value_get(state,y,x)
+    xc   = interpretation_get(state, x)
+    yc   = interpretation_get(state, y)
     
     if n_yx:        
         print stmt, 'Closing circle! state is:' , state
@@ -232,8 +213,8 @@ def lhs_next_ptr_ass_stmt(stmt,state):
     for r in rel:
         a = r[0]
         b = r[1]
-        rel_ax = nstar_relation_value_get(state, a, x)
-        rel_yb = nstar_relation_value_get(state, y, b)        
+        rel_ax = nstar_concrete_value_get(state, a, xc)
+        rel_yb = nstar_concrete_value_get(state, yc, b)        
         rel[r] = rel[r] or ( rel_ax and rel_yb )    
     #changes concrete node, VVal!4 and studff       
 
@@ -279,15 +260,15 @@ def state_all_real_vars_get(state):
     return res
 
 
-
 def relation_map_get(state,rel_name):
     res = state[rel_name]
     return res
 
 #Only works for C(x), monad type relations
 def c_relation_value_get(state,rel_name,x):
-    rel = relation_map_get(state,rel_name)   
-    return rel[x]    
+    rel = relation_map_get(state,rel_name)
+    xc    = interpretation_get(state,x)   
+    return rel[xc]    
 
 def nstar_relation_name_get():
     from trf import N_STAR
@@ -298,25 +279,36 @@ def nstar_relation_map_get(state):
     return relation_map_get(state,nstar_name)    
 
 
-def nstar_relation_tuple_value_get(state,r):
-    rel = nstar_relation_map_get(state)    
-    return rel[r]
+def nstar_concrete_tuple_value_get(state,rc):
+    rel   = nstar_relation_map_get(state)        
+    return rel[rc]
     
     
-def nstar_relation_value_get(state,x,y):
-    rel = nstar_relation_map_get(state)
-    xy  = x,y
-    return rel[xy]
+def nstar_concrete_value_get(state,xc,yc):
+    rel    = nstar_relation_map_get(state)
+    xcyc   = xc,yc
+    return rel[xcyc]
 
 
-def nstar_relation_tuple_value_set(state,r,value):
-    rel     = nstar_relation_map_get(state)
-    rel[r] = value
+def nstar_pointer_value_get(state,x,y):    
+    xc    = interpretation_get(state,x)    
+    yc    = interpretation_get(state,y)    
+    return nstar_concrete_value_get(state,xc,yc)
 
+
+def nstar_concrete_tuple_value_set(state,rc,value):
+    rel     = nstar_relation_map_get(state)    
+    rel[rc] = value
+
+def nstar_pointer_tuple_value_set(state,r,value):    
+    rc      = interpretation_get(state,r)
+    nstar_concrete_tuple_value_set(state,rc,value)
 
 def nstar_relation_value_set(state,x,y,value):
     rel     = nstar_relation_map_get(state)
-    xy      = x,y
+    xc      = interpretation_get(state,x)    
+    yc      = interpretation_get(state,y)
+    xy      = xc,yc
     rel[xy] = value
     
 
@@ -326,7 +318,7 @@ def nstar_relation_value_set(state,x,y,value):
 def interpretation_mapping_get(state):
     return state['map']
 
-def mapping_concrete_get(mapping,v):
+def mapping_concrete_get(mapping,v):    
     return mapping[v]
     
 #returns the concrete node x points on
@@ -334,13 +326,14 @@ def mapping_concrete_get(mapping,v):
 def interpretation_get(state,x):
     v_map = interpretation_mapping_get(state)
     #print v_map
+    #print v_map,x
     return mapping_concrete_get(v_map,x)
 
 def interpretation_set(state,x,p):
     v_map    = interpretation_mapping_get(state)
     v_map[x] = p
     
-#create new interpretation in case of x:=new
+# TODO: create new interpretation in case of x:=new
 
     
 #returns true iff concrete interpretation of x
@@ -350,6 +343,36 @@ def is_equal_intrepretation(state,x,y):
     intrp_y = interpretation_get(state,y)
     return intrp_x == intrp_y
 
+
+def concrete_nodes_get(state):
+    from trf import CONCRETE_DS
+    return state[CONCRETE_DS]
+
+
+#--------------------------------------
+#  Node creation tools
+#--------------------------------------
+#creates new concrete node, and saves it to the state
+#returns the newly created node
+#@static_var("counter", 0)
+def create_node(state):
+    create_node.counter += 1
+    v         = 'V!val!_' + create_node.counter    
+    c_nodes   = concrete_nodes_get(state)
+    nstar_map = nstar_relation_map_get(state)
+
+    vv = v,v
+    nstar_map[vv] = True
+            
+    for r in c_nodes:
+        ab = r, v
+        ba = v, r
+        nstar_map[ab] = False
+        nstar_map[ba] = False
+                
+    c_nodes.append( v )    
+    return v
+    
 
 
 #--------------------------------------

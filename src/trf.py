@@ -6,7 +6,8 @@ from   logic.fol.semantics.structure import FolStructure
 from copy import copy
 
 
-N_STAR     = 'n*'    
+N_STAR      =  'n*'    
+CONCRETE_DS =  'concrete_ds'
 
 
 def init_fol_struct( domain,interpretation,state ):
@@ -95,7 +96,7 @@ def create_dummy_state():
     state['C']            = C
     state['map']          = var_concrete_map
     state['rvars']        = rvars
-    state['concrete_ds']  = concrete_ds
+    state[CONCRETE_DS]  = concrete_ds
     
     #init_fol_struct(concrete_ds, var_concrete_map, state)
     print 'dummy_state:', state    
@@ -106,7 +107,7 @@ def create_state():
     print 'Creating state:'
     state_from_model = {}    
     m                = model_get()
-    state_from_model['concrete_ds'] = concrete_ds_get(m)
+    state_from_model[CONCRETE_DS] = concrete_ds_get(m)
     relations  = []
     relations.append( N_STAR );
     relations.append( 'C' );
@@ -114,7 +115,9 @@ def create_state():
     rvars = vars_get(m, relations )
     state_from_model['rvars'] = rvars
     state_from_model['relations']        = relations
-    interpretation_from_model_get( m,relations,rvars,state_from_model)
+    interpretation_from_model_get( m,relations, 
+                                   state_from_model[CONCRETE_DS],
+                                   state_from_model )
     #init_fol_struct(m.domain, m.interpretation, state_from_model)
     print 'State from model:',state_from_model
     print 'Model:', m
@@ -258,6 +261,8 @@ if __name__ == '__main__':
     
     astf = fe.parser(str_to_parse)
 
+
+    
     #print astf
     general_stmt(astf,state)
         
