@@ -34,11 +34,11 @@ def eval_do(state,eval_tree):
         if r == AND:
             lhs = eval_do(state,eval_tree.subtrees[0])
             rhs = eval_do(state,eval_tree.subtrees[1])
-            return lhs or rhs
+            return lhs and rhs
         elif r == OR:
             lhs = eval_do(state,eval_tree.subtrees[0])
             rhs = eval_do(state,eval_tree.subtrees[1])
-            return lhs and rhs
+            return lhs or rhs
         elif r == EQUALS:
             return equals_op(state,eval_tree.subtrees[0], eval_tree.subtrees[1])
         elif r == NEQUALS:

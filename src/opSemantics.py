@@ -7,6 +7,10 @@ from exprEval import eval_cond
 
 def general_stmt(stmt,state):
     curStmt = stmt.root
+    
+    print 'Initial state:', stmt
+    draw_graph( 'file1', state )        
+
    
     if curStmt == 'while':
         while_stmt(stmt, state)
@@ -70,9 +74,12 @@ def while_stmt(stmt,state):
     #the invariant I is in between here
     print 'the invariant I:=', stmt.subtrees[1]
     while_body   = stmt.subtrees[-1]
+    
     cond_chk     = eval_cond(while_cond,state)
     if cond_chk:
-        general_stmt(while_body,state)    
+        general_stmt(while_body,state)
+        while_stmt(stmt,state)
+            
 
 
 # x := y
@@ -125,29 +132,21 @@ def p_next(state,n_ptr,s,t):
 
 
 
-def next_concrete_node_get(y,n_ptr,state):
-    #y     = stmt.subtrees[1].root
-    #n_ptr = stmt.subtrees[2].root
-#    if (y == 'i') |  (y == 'h'):
-#        raw_input("DEbug...")
-    if is_equal_intrepretation(state, y, 'null'):
-        print 'Variable',y,' is pointing to null.'
-        return None
-    
-    cy = interpretation_get(state, y)    
-        
-    #print 'next_node_get of ', y, cy
+def next_concrete_node_of_c_node_get(cy,n_ptr,state):
     c_nodes  = concrete_nodes_get(state)
     for alpha in c_nodes:        
         is_minimal = p_next(state,n_ptr,cy,alpha)
-        #please note that their could be only **one** alpha that is true
         if is_minimal:
-            #copy_relation_values(state,n_ptr,alpha,x)
-            #print 'found minimal for cy=',cy,'. Minimal is alpha=',alpha    
             return alpha
-#    if (y == 'i') |  (y == 'h'):
-#        raw_input("DEbug End...")        
     return None
+
+
+def next_concrete_node_of_ptr_get(y,n_ptr,state):
+    if is_equal_intrepretation(state, y, 'null'):
+        print 'Variable',y,' is pointing to null.'
+        return None
+    cy = interpretation_get(state, y)          
+    return next_concrete_node_of_c_node_get(cy,n_ptr,state)
 
 # x := y.next
 #first we find all vars that are reachable from y
@@ -158,13 +157,14 @@ def rhs_next_ptr_stmt(stmt,state):
     x     = stmt.subtrees[0].root
     y     = stmt.subtrees[1].root    
     n_ptr = nstar_relation_name_get()
-    alpha = next_concrete_node_get( y,n_ptr,state )
+    alpha = next_concrete_node_of_ptr_get( y,n_ptr,state )
     #print x,y,alpha
     if alpha != None:    
-        interpretation_set(state,x,alpha)
-        
+        interpretation_set(state,x,alpha)        
     else:
+        c_null = interpretation_get(state, 'null')            
         print 'rhs_next_ptr_stmt: Next node is null ', x, alpha
+        interpretation_set(state, x, c_null)        
                                 
 
 # x.next := null

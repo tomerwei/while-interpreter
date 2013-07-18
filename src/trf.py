@@ -180,8 +180,8 @@ def model_get():
     other_result       = """n*(h,x) & n*(x,y) &    
                             (i != null -> n*(h,i)) &
                              (j = null -> i = h ) & 
-                             (j != null -> n*(h,j) & ntot_(j,i) ) &                                  
-                             (t != null -> C(i) ) & t = null"""
+                             (j != null -> n*(h,j) ) &                                  
+                             (t != null -> C(i) )  & ( t = null -> ~C(i) )"""
     #brute_force()    
     file_str = open( '/home/tomerwei/Applications/fol-tool/IMDEA.Imtel/fol/examples/sll-delete.imp').read()
     #for formula in permute():

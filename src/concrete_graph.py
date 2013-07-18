@@ -3,14 +3,12 @@
 from pygraphviz import *
 
 
-def next_edge_get(state,ptr):
-    var_map   =   state['map']
-     
-    from opSemantics import next_concrete_node_get
+def next_edge_get(state,c_node):
+    var_map   =   state['map']     
+    from opSemantics import next_concrete_node_of_c_node_get
     from opSemantics import nstar_relation_name_get
     n_ptr = nstar_relation_name_get()    
-    next_node = next_concrete_node_get(ptr,n_ptr, state)
-    print 'next_edge_get', ptr,next_node
+    next_node = next_concrete_node_of_c_node_get(c_node,n_ptr, state)    
     return next_node
         
 
@@ -28,14 +26,14 @@ def draw_graph(prefix, state):
     g.add_nodes_from(rvars, color='green', shape='none' )        
     for v in rvars:
         concrete_n = var_map[v]
-        g.add_edge(v,concrete_n, color = 'green' )        
-        chk = is_equal_intrepretation(state, v, 'null' )
-        if  not chk:                    
-            next_concrete_n = next_edge_get(state,v)
-            if next_concrete_n != None:
-                print 'is_eq adding edge for', v, chk, concrete_n, next_concrete_n                 
-                edge_label = str(v) + '.next'
-                g.add_edge(concrete_n,next_concrete_n, label = edge_label)
+        g.add_edge(v,concrete_n, color = 'green' )
+        
+    for n in c_nodes:
+        next_concrete_n = next_edge_get(state,n)
+        if next_concrete_n != None:
+            #print 'is_eq adding edge for', n, chk, concrete_n, next_concrete_n
+            #edge_label = str(v) + '.next'
+            g.add_edge(n,next_concrete_n )
     #s=g.string()
     g.layout(prog='dot')
     g.draw(prefix + '.png')
