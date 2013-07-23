@@ -31,7 +31,7 @@ def draw_graph(prefix, state):
         
     for n in c_nodes:        
         next_concrete_n = next_edge_get(state,n)
-        print 'current_node', n, 'next_node', next_concrete_n
+        #print 'current_node', n, 'next_node', next_concrete_n
         if next_concrete_n != None:
             #print 'is_eq adding edge for', n, chk, concrete_n, next_concrete_n
             #edge_label = str(v) + '.next'

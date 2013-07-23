@@ -5,22 +5,23 @@ from concrete_graph import draw_graph
 from exprEval import eval_cond
 #need to define 
 
+
 def general_stmt(stmt,state):
     curStmt = stmt.root
     
-    print 'Initial state:', stmt
-    draw_graph( 'file1', state )        
+    #print 'Initial state:', stmt
+    #draw_graph( 'file1', state )        
 
    
     if curStmt == 'while':
-        while_stmt(stmt, state)
+        return while_stmt(stmt, state)
     elif curStmt == 'if':
         if_stmt(stmt, state)
     elif curStmt == ';':
         comma_stmt(stmt,state)
     else:
-        print 'Graph Before statement:', stmt
-        draw_graph( 'file1', state )        
+        #print 'Graph Before statement:', stmt
+        #draw_graph( 'file1', state )        
         
         if curStmt == 'x:=y':
             ass_stmt(stmt,state)
@@ -40,10 +41,16 @@ def general_stmt(stmt,state):
             raise SystemExit
             
         #state_diff_finder(prev_state,state)
-        print 'Graph After statement:', stmt
-        draw_graph( 'file2', state )
-        raw_input("Press Enter to continue...")    
+        #print 'Graph After statement:', stmt
+        #draw_graph( 'file2', state )
+        #raw_input("Press Enter to continue...")    
 
+
+def chk_inv_on_general_stmt( state ):
+    from exprEval import eval_inv    
+    inv                   = inv_get(state)
+    does_inv_hold_in_loop = eval_inv(inv,state)            
+    return does_inv_hold_in_loop
     
 
 
@@ -74,15 +81,21 @@ def while_stmt(stmt,state):
     while_cond   = stmt.subtrees[0]
     #the invariant I is in between here
     inv = inv_get(state)
-    print 'the invariant I:=', inv
+    #print 'the invariant I:=', inv
     while_body   = stmt.subtrees[-1]    
     cond_chk     = eval_cond(while_cond,state)
     if cond_chk:
-        general_stmt(while_body,state)
-        #checking invariant
-        does_inv_hold = eval_inv(inv,state)
-        print 'does invariant hold in the end of loop?', does_inv_hold        
-        while_stmt(stmt,state)
+        does_inv_hold_in_loop_start = eval_inv(inv,state)        
+        if ~does_inv_hold_in_loop_start:
+            general_stmt(while_body,state)
+            #checking invariant
+            does_inv_hold_in_loop_end = eval_inv(inv,state)
+            print 'does invariant hold in the end of loop?', does_inv_hold_in_loop_end
+            if ~does_inv_hold_in_loop_end:
+                return False       
+            while_stmt(stmt,state)
+        else:
+            print 'does invariant hold at the start of loop?', does_inv_hold_in_loop_start
             
 
 
@@ -119,15 +132,15 @@ def p_next(state,n_ptr,s,t):
     result      =  p_next_plus(state,n_ptr,s,t)
     if result:
         c_nodes   =  concrete_nodes_get(state)
-        print 's and t are different' , s ,t 
+        #print 's and t are different' , s ,t 
         for gamma in c_nodes:
             lhs       =  p_next_plus(state,n_ptr,s,gamma)
             rhs       =  nstar_concrete_value_get(state,t,gamma)            
             lhs_implies_rhs = (not lhs) or rhs
             result    = result and lhs_implies_rhs                   
             if not result:
-                print lhs,rhs, lhs_implies_rhs, result
-                print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
+                #print lhs,rhs, lhs_implies_rhs, result
+                #print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
                 return False
             #else:
                 #print 'passed for s=',s,'t-is minimal node=',t,'gamma=',gamma                
@@ -138,10 +151,10 @@ def p_next(state,n_ptr,s,t):
 
 def next_concrete_node_of_c_node_get(cy,n_ptr,state):
     c_nodes  = concrete_nodes_get(state)
-    print 'searching node for', cy
+    #print 'searching node for', cy
     for alpha in c_nodes:        
         is_minimal = p_next(state,n_ptr,cy,alpha)
-        print 'is_min', is_minimal, cy, alpha
+        #print 'is_min', is_minimal, cy, alpha
         if is_minimal:
             return alpha
     return None
@@ -149,7 +162,7 @@ def next_concrete_node_of_c_node_get(cy,n_ptr,state):
 
 def next_concrete_node_of_ptr_get(y,n_ptr,state):
     if is_equal_intrepretation(state, y, 'null'):
-        print 'Variable',y,' is pointing to null.'
+        #print 'Variable',y,' is pointing to null.'
         return None
     cy = interpretation_get(state, y)          
     return next_concrete_node_of_c_node_get(cy,n_ptr,state)
@@ -169,7 +182,7 @@ def rhs_next_ptr_stmt(stmt,state):
         interpretation_set(state,x,alpha)        
     else:
         c_null = interpretation_get(state, 'null')            
-        print 'rhs_next_ptr_stmt: Next node is null ', x, alpha
+        #print 'rhs_next_ptr_stmt: Next node is null ', x, alpha
         interpretation_set(state, x, c_null)        
                                 
 
@@ -214,8 +227,6 @@ def lhs_next_ptr_ass_stmt(stmt,state):
         print stmt, 'lhs_next_ptr_ass_stmt: lhs is already pointing to rhs!' , state
         raise SystemExit
     
-    print 'previous state', state
-        
     lhs_next_ptr_null_stmt(stmt, state)          #x.n := null
     nstar_relation_value_set(state, x, x, True)  #from here till end: x.n := y
     nstar_relation_value_set(state, x, y, True)  #from here till end: x.n := y
@@ -229,9 +240,8 @@ def lhs_next_ptr_ass_stmt(stmt,state):
         rel_ax = nstar_concrete_value_get(state, a, xc)
         rel_yb = nstar_concrete_value_get(state, yc, b)        
         rel[r] = rel[r] or ( rel_ax and rel_yb )    
-    #changes concrete node, VVal!4 and studf
-    
-    print 'afterwards state', state 
+    #changes concrete node, VVal!4 and studf    
+    #print 'afterwards state', state 
 
 #returns the current state
 def get_state(state,relation_name,key):
@@ -262,7 +272,8 @@ def relation_map_get(state,rel_name):
 #Only works for C(x), monad type relations
 def c_relation_value_get(state,rel_name,x):
     rel = relation_map_get(state,rel_name)
-    xc    = interpretation_get(state,x)   
+    xc    = interpretation_get(state,x)
+    #print 'c map', xc, rel[xc] , rel   
     return rel[xc]    
 
 def nstar_relation_name_get():
@@ -371,42 +382,20 @@ def node_factory_get(state):
     
 
 class node_creator:
-    first   = True
     counter = 0
 
     def __init__(self):
-        self.first   = True
         self.counter = 0
-
-    def prt_lines(self):
-        print "Static: ",
-        if node_creator.first:
-            print "true."
-        else:
-            print "false."
-        print "Non-Static: ",
-        if self.first:
-            print "true."
-        else:
-            print "false."
-
 
     def create_node(self,state):
         self.counter += 1
         v         = 'V!val!_' + str( self.counter )    
         c_nodes   = concrete_nodes_get(state)
         c_nodes.append( v )
-        
-        print 'current c_node:', c_nodes, 'added:', v
-        
+       
         nstar_map     = nstar_relation_map_get(state)
-        
-        print 'nstar_map before ',nstar_map
-        
         vv            = v,v
         nstar_map[vv] = True
-        
-        print 'nstar_map after ',nstar_map
                     
         for r in c_nodes:
             ab = r, v
@@ -415,7 +404,6 @@ class node_creator:
             nstar_map[ba] = False
                             
         return v
-    
 
 
 #--------------------------------------

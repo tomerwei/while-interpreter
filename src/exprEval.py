@@ -15,7 +15,7 @@ def equals_op(state,lhs_tree,rhs_tree):
     from opSemantics import is_equal_intrepretation
     #print lhs_tree, rhs_tree        
     res = is_equal_intrepretation(state,lhs_tree.root,rhs_tree.root)
-    print 'is',lhs_tree,'equal to',rhs_tree,'?',res
+    #print 'is',lhs_tree,'equal to',rhs_tree,'?',res
     return res
 
 def relations_op(state,rel_name,tree):
@@ -23,7 +23,8 @@ def relations_op(state,rel_name,tree):
     
     rel_arg = tree.subtrees[0].root
     if rel_name == 'C':
-        return c_relation_value_get(state, rel_name, rel_arg)
+        res =  c_relation_value_get(state, rel_name, rel_arg)        
+        return res
     else:
         print 'relations_op: Rel not dealt with', rel_name
         print rel_name, ' -> ' , tree
@@ -80,7 +81,7 @@ def eval_cond(cond,state):
     L   =  FolFormulaParser()        
     t   =  L.parser.parse(cond.root)    
     res =  eval_do(state,t)
-    print 'eval_cond', cond, res
+    #print 'eval_cond', cond, res
     #parsed_cond        = L.parser.parse( cond.root )
     #eval_bool_formula  = f.evaluate( parsed_cond )    
     #return eval_bool_formula

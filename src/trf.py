@@ -3,7 +3,7 @@ import random
 from   collections import defaultdict
 from   logic.fol.syntax.parser import FolFormulaParser
 from   logic.fol.semantics.structure import FolStructure
-from copy import copy
+from copy import copy, deepcopy
 
 
 N_STAR      =  'n*'    
@@ -113,9 +113,11 @@ def create_state(invariant):
     relations.append( N_STAR );
     relations.append( 'C' );
     relations.append( 'n*_' );        
-    rvars = vars_get(m, relations )
-    state_from_model['rvars'] = rvars
-    state_from_model['relations']        = relations
+    
+    rvars = vars_get( m, relations )
+    
+    state_from_model['rvars']      = rvars
+    state_from_model['relations']  = relations
     state_from_model[ INV ]        = invariant    
     interpretation_from_model_get( m,relations, 
                                    state_from_model[CONCRETE_DS],
@@ -207,16 +209,14 @@ def vars_get(m,relations):
 
 def relation_get(intrp,rel,rvars):
     res = {}
-    f = intrp[rel]
-    print f
+    f = intrp[rel]    
     for i in rvars:
         #Distinguish between binary and monad relations
         if rel == 'C': 
             in_rel = f(i)            
             res[i] = in_rel
         else:
-            for j in rvars:
-                print i,j                    
+            for j in rvars:                            
                 in_rel = f(i,j)
                 ij = i,j
                 res[ij] = in_rel
@@ -281,12 +281,35 @@ if __name__ == '__main__':
       )
    )"""
    
-    trf_interpreter(state,fe)
-   
-    astf = fe.parser(str_to_parse)
+    #while-interpreter 
+    #trf_interpreter(state,fe)
+    org_state_map   = deepcopy(state['map'])
+    org_state_c     = deepcopy(state['C'])
+    org_state_nstar = deepcopy(state['n*'])
 
-    #print astf
-    general_stmt(astf,state)
+    astf      = fe.parser(str_to_parse)    
+    general_stmt(astf,state)    
+        
+    last_st         = state    
+    first_st        = state
+    first_st['map'] = deepcopy(org_state_map)
+    first_st['C']   = deepcopy(org_state_c)
+    first_st['n*']  = deepcopy(org_state_nstar)    
+            
+    from permute import brute_force
+    from opSemantics import chk_inv_on_general_stmt
+    
+    for formula in brute_force():
+        first_st[INV] = formula        
+        s_loop = chk_inv_on_general_stmt( first_st )
+        if s_loop:
+            last_st[INV] = formula
+            e_loop = chk_inv_on_general_stmt( last_st )
+            print 'Does inv hold?: ', formula, e_loop
+                
+        
+           
+    
         
     #w = WhileFrontend.WhileASTDeserialize()
     #print w(unicode(astf))
