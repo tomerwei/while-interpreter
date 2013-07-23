@@ -24,16 +24,18 @@ def draw_graph(prefix, state):
     g.add_nodes_from(c_nodes)    
     #g.node_attr['shape']='box'
     g.add_nodes_from(rvars, color='green', shape='none' )        
+
     for v in rvars:
         concrete_n = var_map[v]
         g.add_edge(v,concrete_n, color = 'green' )
         
-    for n in c_nodes:
+    for n in c_nodes:        
         next_concrete_n = next_edge_get(state,n)
+        print 'current_node', n, 'next_node', next_concrete_n
         if next_concrete_n != None:
             #print 'is_eq adding edge for', n, chk, concrete_n, next_concrete_n
             #edge_label = str(v) + '.next'
-            g.add_edge(n,next_concrete_n )
+            g.add_edge( n,next_concrete_n )
     #s=g.string()
     g.layout(prog='dot')
     g.draw(prefix + '.png')

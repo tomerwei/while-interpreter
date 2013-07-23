@@ -70,14 +70,18 @@ def if_stmt(stmt,state):
 
 
 def while_stmt(stmt,state):
+    from exprEval import eval_inv    
     while_cond   = stmt.subtrees[0]
     #the invariant I is in between here
-    print 'the invariant I:=', stmt.subtrees[1]
-    while_body   = stmt.subtrees[-1]
-    
+    inv = inv_get(state)
+    print 'the invariant I:=', inv
+    while_body   = stmt.subtrees[-1]    
     cond_chk     = eval_cond(while_cond,state)
     if cond_chk:
         general_stmt(while_body,state)
+        #checking invariant
+        does_inv_hold = eval_inv(inv,state)
+        print 'does invariant hold in the end of loop?', does_inv_hold        
         while_stmt(stmt,state)
             
 
@@ -96,7 +100,7 @@ def ass_new_ptr(stmt,state):
     #print 'new ptr: ', stmt
     x   = stmt.subtrees[0].root    
     # create new concrete node, which is false to all
-    concrete_intp   = create_node(state)
+    concrete_intp   = node_factory_get(state)
     # map x to node
     interpretation_set(state, x, concrete_intp )
     
@@ -115,15 +119,15 @@ def p_next(state,n_ptr,s,t):
     result      =  p_next_plus(state,n_ptr,s,t)
     if result:
         c_nodes   =  concrete_nodes_get(state)
-        #print 's and t are different' , rvars, s ,t 
+        print 's and t are different' , s ,t 
         for gamma in c_nodes:
             lhs       =  p_next_plus(state,n_ptr,s,gamma)
             rhs       =  nstar_concrete_value_get(state,t,gamma)            
             lhs_implies_rhs = (not lhs) or rhs
             result    = result and lhs_implies_rhs                   
             if not result:
-                #print lhs,rhs, lhs_implies_rhs, result
-                #print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
+                print lhs,rhs, lhs_implies_rhs, result
+                print 'for s=',s,'t-is not the minimal node=',t,'gamma=',gamma                
                 return False
             #else:
                 #print 'passed for s=',s,'t-is minimal node=',t,'gamma=',gamma                
@@ -134,8 +138,10 @@ def p_next(state,n_ptr,s,t):
 
 def next_concrete_node_of_c_node_get(cy,n_ptr,state):
     c_nodes  = concrete_nodes_get(state)
+    print 'searching node for', cy
     for alpha in c_nodes:        
         is_minimal = p_next(state,n_ptr,cy,alpha)
+        print 'is_min', is_minimal, cy, alpha
         if is_minimal:
             return alpha
     return None
@@ -186,33 +192,46 @@ def lhs_next_ptr_null_stmt(stmt,state):
         b = r[1]
         rel_ax = nstar_concrete_value_get(state, a, cx)
         rel_bx = nstar_concrete_value_get(state, b, cx)
-        rel_r  = nstar_concrete_value_get(state, r)
+        rel_r  = nstar_concrete_tuple_value_get(state, r)
         res    = rel_r and ( (not rel_ax) or rel_bx )
         nstar_concrete_tuple_value_set(state, r, res )#rel[r] = rel_r & ( ~rel_ax | rel_bx )         
         
                 
              
-# x.next := y       
+# x.next := y
+# the above equals to: x.n := null ; x.n := y
 def lhs_next_ptr_ass_stmt(stmt,state):
-    x = stmt.subtrees[0].root
+    x    = stmt.subtrees[0].root
     #n = stmt.subtrees[1].root
-    y = stmt.subtrees[2].root    
-    rel  = nstar_relation_map_get(state)   
+    y    = stmt.subtrees[2].root        
     n_yx = nstar_pointer_value_get(state,y,x)
+    n_xy = nstar_pointer_value_get(state,x,y)
     
+    if n_yx:#we want to detect this !
+        print stmt, 'lhs_next_ptr_ass_stmt: Closing circle! Exiting. state is:' , state
+        raise SystemExit
+    elif n_xy: #should never happen
+        print stmt, 'lhs_next_ptr_ass_stmt: lhs is already pointing to rhs!' , state
+        raise SystemExit
+    
+    print 'previous state', state
+        
+    lhs_next_ptr_null_stmt(stmt, state)          #x.n := null
+    nstar_relation_value_set(state, x, x, True)  #from here till end: x.n := y
+    nstar_relation_value_set(state, x, y, True)  #from here till end: x.n := y
+            
     xc   = interpretation_get(state, x)
     yc   = interpretation_get(state, y)
-    
-    if n_yx:        
-        print stmt, 'lhs_next_ptr_ass_stmt: Closing circle! Exiting. state is:' , state
-        raise SystemExit    
+    rel  = nstar_relation_map_get(state)    
     for r in rel:
         a = r[0]
         b = r[1]
         rel_ax = nstar_concrete_value_get(state, a, xc)
         rel_yb = nstar_concrete_value_get(state, yc, b)        
         rel[r] = rel[r] or ( rel_ax and rel_yb )    
-    #changes concrete node, VVal!4 and studff       
+    #changes concrete node, VVal!4 and studf
+    
+    print 'afterwards state', state 
 
 #returns the current state
 def get_state(state,relation_name,key):
@@ -287,6 +306,14 @@ def nstar_relation_value_set(state,x,y,value):
     xy      = xc,yc
     rel[xy] = value
     
+#--------------------------------------
+#  Other state API's
+#--------------------------------------
+    
+def inv_get(state):
+    from trf import INV    
+    return state[INV]    
+    
 
 #--------------------------------------
 #  Interpretation Mapping
@@ -329,29 +356,65 @@ def concrete_nodes_get(state):
     return state[CONCRETE_DS]
 
 
+
 #--------------------------------------
 #  Node creation tools
 #--------------------------------------
 #creates new concrete node, and saves it to the state
 #returns the newly created node
 #@static_var("counter", 0)
-def create_node(state):
-    create_node.counter += 1
-    v         = 'V!val!_' + create_node.counter    
-    c_nodes   = concrete_nodes_get(state)
-    nstar_map = nstar_relation_map_get(state)
 
-    vv = v,v
-    nstar_map[vv] = True
-            
-    for r in c_nodes:
-        ab = r, v
-        ba = v, r
-        nstar_map[ab] = False
-        nstar_map[ba] = False
-                
-    c_nodes.append( v )    
-    return v
+def node_factory_get(state):
+    nc  =  state['nc']
+    res =  nc.create_node(state)
+    return res
+    
+
+class node_creator:
+    first   = True
+    counter = 0
+
+    def __init__(self):
+        self.first   = True
+        self.counter = 0
+
+    def prt_lines(self):
+        print "Static: ",
+        if node_creator.first:
+            print "true."
+        else:
+            print "false."
+        print "Non-Static: ",
+        if self.first:
+            print "true."
+        else:
+            print "false."
+
+
+    def create_node(self,state):
+        self.counter += 1
+        v         = 'V!val!_' + str( self.counter )    
+        c_nodes   = concrete_nodes_get(state)
+        c_nodes.append( v )
+        
+        print 'current c_node:', c_nodes, 'added:', v
+        
+        nstar_map     = nstar_relation_map_get(state)
+        
+        print 'nstar_map before ',nstar_map
+        
+        vv            = v,v
+        nstar_map[vv] = True
+        
+        print 'nstar_map after ',nstar_map
+                    
+        for r in c_nodes:
+            ab = r, v
+            ba = v, r
+            nstar_map[ab] = False
+            nstar_map[ba] = False
+                            
+        return v
     
 
 

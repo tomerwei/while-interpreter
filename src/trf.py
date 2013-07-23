@@ -8,6 +8,7 @@ from copy import copy
 
 N_STAR      =  'n*'    
 CONCRETE_DS =  'concrete_ds'
+INV         =  'invariant' 
 
 
 def init_fol_struct( domain,interpretation,state ):
@@ -103,10 +104,10 @@ def create_dummy_state():
     return state
 
 
-def create_state():
+def create_state(invariant):
     print 'Creating state:'
     state_from_model = {}    
-    m                = model_get()
+    m                = model_get(invariant)
     state_from_model[CONCRETE_DS] = concrete_ds_get(m)
     relations  = []
     relations.append( N_STAR );
@@ -115,9 +116,15 @@ def create_state():
     rvars = vars_get(m, relations )
     state_from_model['rvars'] = rvars
     state_from_model['relations']        = relations
+    state_from_model[ INV ]        = invariant    
     interpretation_from_model_get( m,relations, 
                                    state_from_model[CONCRETE_DS],
                                    state_from_model )
+    
+    from opSemantics import node_creator
+    nc          = node_creator()
+    state_from_model['nc'] = nc
+    
     #init_fol_struct(m.domain, m.interpretation, state_from_model)
     print 'State from model:',state_from_model
     print 'Model:', m
@@ -163,7 +170,7 @@ def relations_get(state):
 
 from synopsis.af_wp_permute import WeakestPreconditionPermute    
 import os.path    
-def model_get():
+def model_get(invariant):
     print 'Getting model...'
     w                  =  WeakestPreconditionPermute()
     here               =  os.path.dirname(os.path.realpath(__file__))
@@ -177,17 +184,11 @@ def model_get():
                              ite(j = null, i=h, n*(h,j) & ntot_(j,i)) &     
                              (t != null -> C(i))"""                                                        
                              
-    other_result       = """n*(h,x) & n*(x,y) &    
-                            (i != null -> n*(h,i)) &
-                             (j = null -> i = h ) & 
-                             (j != null -> n*(h,j) ) &                                  
-                             (t != null -> C(i) )  & ( t = null -> ~C(i) )"""
     #brute_force()    
     file_str = open( '/home/tomerwei/Applications/fol-tool/IMDEA.Imtel/fol/examples/sll-delete.imp').read()
     #for formula in permute():
     #formula = '( n*(i,j) & n*(i,t) )'    
-    formula   = other_result    
-    inv_guess = 'I:=' + formula + '\n' + file_str
+    inv_guess = 'I:=' + invariant + '\n' + file_str
     #print 'Formula: ', formula + '\n'
     m = w( inv_guess )    
     #print 'Domain:', m.domain
@@ -238,10 +239,31 @@ def concrete_ds_get(m):
     return res
 
 
+def trf_interpreter(state,fe):
+    print 'Welcome to the while-interpreter.'
+    while True:
+        to_parse = raw_input(">")
+        if to_parse == 'exit':
+            return
+        elif len(to_parse)>0:
+            astf = fe.parser(to_parse)
+            #print astf
+            general_stmt(astf,state)        
+            
+            
+        
+    
+
     
 if __name__ == '__main__':    
     #state = init()
-    state = create_state()
+    invariant     = """ n*(h,x) & n*(x,y) &    
+                     (i != null -> n*(h,i)) &
+                     (j = null -> i = h ) & 
+                     (j != null -> n*(h,j) ) &                                  
+                     (t != null -> C(i) )  & ( t = null -> ~C(i) )"""
+    
+    state = create_state( invariant )
     
     from synopsis.programs.while_fe import WhileFrontend
     from opSemantics import general_stmt
@@ -249,7 +271,7 @@ if __name__ == '__main__':
     state['fe']  =  fe    
     prev_parse   = """
                    while $i != null$ {$I$} ( ( if $C( i )$ then ( a:= new ; t := i.n ; j.n := null ; j.n := t ) else j := i ) ; i := i.n )
-                    """
+                """
                     
     str_to_parse = """
    while $i != null & t = null$ {$I$} (
@@ -258,11 +280,11 @@ if __name__ == '__main__':
          j := i ; i := i.n
       )
    )"""
-    
+   
+    trf_interpreter(state,fe)
+   
     astf = fe.parser(str_to_parse)
 
-
-    
     #print astf
     general_stmt(astf,state)
         
