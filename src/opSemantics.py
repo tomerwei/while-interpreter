@@ -7,6 +7,7 @@ from exprEval import eval_cond
 
 
 def general_stmt(stmt,state):
+    #print stmt, str(type(stmt))
     curStmt = stmt.root
     
     #print 'Initial state:', stmt
@@ -47,9 +48,9 @@ def general_stmt(stmt,state):
 
 
 def chk_inv_on_general_stmt( state ):
-    from exprEval import eval_inv    
+    from exprEval import eval_inv_quick    
     inv                   = inv_get(state)
-    does_inv_hold_in_loop = eval_inv(inv,state)            
+    does_inv_hold_in_loop = eval_inv_quick(inv,state)            
     return does_inv_hold_in_loop
     
 

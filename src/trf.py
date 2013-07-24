@@ -1,9 +1,14 @@
 import itertools
 import random
+import cProfile, pstats, io
+
+
+
 from   collections import defaultdict
 from   logic.fol.syntax.parser import FolFormulaParser
 from   logic.fol.semantics.structure import FolStructure
 from copy import copy, deepcopy
+from logic.fol.syntax.formula import FolFormula
 
 
 N_STAR      =  'n*'    
@@ -263,11 +268,11 @@ if __name__ == '__main__':
                      (j != null -> n*(h,j) ) &                                  
                      (t != null -> C(i) )  & ( t = null -> ~C(i) )"""
     
-    state = create_state( invariant )
-    
     from synopsis.programs.while_fe import WhileFrontend
     from opSemantics import general_stmt
-    fe           =  WhileFrontend()    
+    fe           =  WhileFrontend()
+    
+    state = create_state( invariant )    
     state['fe']  =  fe    
     prev_parse   = """
                    while $i != null$ {$I$} ( ( if $C( i )$ then ( a:= new ; t := i.n ; j.n := null ; j.n := t ) else j := i ) ; i := i.n )
@@ -287,29 +292,52 @@ if __name__ == '__main__':
     org_state_c     = deepcopy(state['C'])
     org_state_nstar = deepcopy(state['n*'])
 
-    astf      = fe.parser(str_to_parse)    
-    general_stmt(astf,state)    
+    astf      = fe.parser(str_to_parse)
+    
+    from concrete_graph import draw_graph
+    draw_graph( 'file1', state)    
+    general_stmt(astf,state)
+    draw_graph( 'file2', state )    
         
     last_st         = state    
-    first_st        = state
-    first_st['map'] = deepcopy(org_state_map)
-    first_st['C']   = deepcopy(org_state_c)
-    first_st['n*']  = deepcopy(org_state_nstar)    
-            
-    from permute import brute_force
+    first_st        = create_state( invariant )
+    first_st['fe']  =  fe    
+        
+    from permute import adt_brute_force
     from opSemantics import chk_inv_on_general_stmt
     
-    for formula in brute_force():
+    total_counter = 0
+    holds_counter = 0
+    #checking if brute force is efficient -> it is!    
+    #for formula in brute_force():
+    #    total_counter+=1
+    #    print formula, total_counter
+    #for foo in adt_brute_force():
+    #    print foo
+        
+    pr = cProfile.Profile()
+    pr.enable()
+        
+    for formula in adt_brute_force():
+        total_counter+=1
         first_st[INV] = formula        
         s_loop = chk_inv_on_general_stmt( first_st )
         if s_loop:
             last_st[INV] = formula
-            e_loop = chk_inv_on_general_stmt( last_st )
-            print 'Does inv hold?: ', formula, e_loop
-                
-        
-           
-    
+            e_loop = chk_inv_on_general_stmt( last_st )            
+            if not e_loop:
+                holds_counter+=1
+                print 'Does inv hold?: ', FolFormula.reconstruct(formula), str(e_loop), total_counter, holds_counter
+            
+            if total_counter > 100000:
+                break
+                        
+    pr.disable()
+    #f = open('x.prof', 'a')
+    sortby = 'time'
+    pstats.Stats(pr ).strip_dirs().sort_stats(sortby).print_stats()
+    #f.close()
+    #ps.print_results()
         
     #w = WhileFrontend.WhileASTDeserialize()
     #print w(unicode(astf))

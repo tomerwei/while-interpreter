@@ -20,11 +20,15 @@ def equals_op(state,lhs_tree,rhs_tree):
 
 def relations_op(state,rel_name,tree):
     from opSemantics import c_relation_value_get
-    
-    rel_arg = tree.subtrees[0].root
-    if rel_name == 'C':
-        res =  c_relation_value_get(state, rel_name, rel_arg)        
+    from opSemantics import nstar_pointer_value_get
+    rel_arg1 = tree.subtrees[0].root
+    if rel_name == 'C':        
+        res =  c_relation_value_get(state, rel_name, rel_arg1)        
         return res
+    if rel_name == 'n*':
+        rel_arg2 = tree.subtrees[1].root
+        res = nstar_pointer_value_get(state, rel_arg1, rel_arg2)
+        return res        
     else:
         print 'relations_op: Rel not dealt with', rel_name
         print rel_name, ' -> ' , tree
@@ -33,7 +37,8 @@ def relations_op(state,rel_name,tree):
 
 
 def eval_do(state,eval_tree):    
-    r = eval_tree.root    
+    r = eval_tree.root
+    #print r, str(type(r))    
     if r in OPERATORS:
         if r == AND:
             lhs = eval_do(state,eval_tree.subtrees[0])
@@ -62,13 +67,13 @@ def eval_do(state,eval_tree):
         return True
     elif r == 'False':
         return False            
-    elif r in relations_get(state):
+    elif r in relations_get(state):        
         return relations_op(state,r,eval_tree)                                 
     else:
         print 'Welcome to eval_do: ParsingError'            
         print r, ' -> ' , eval_tree
         raise SystemExit
-
+    
     return False
 
 
@@ -117,5 +122,41 @@ def eval_inv(cond,state):
     t   =  L.parser.parse(inv)
     #print 'cond stmt:', inv, str(type(inv)), t
     res =  eval_do(state,t)
+    #print 'eval_cond', inv, cond,res
+    return res
+
+
+def preprop_nstar_quick(inv,state):
+    from opSemantics import nstar_pointer_value_get
+    import re
+    #print 'preprop_nstar_quick',inv, str(type(inv))                
+    #print 'preprop_nstar_quick',inv.root, str(type(inv.root))
+    result = re.findall("n.\(...\)",inv);    
+    for r in result:
+        tmp        =  r.replace("n*(","")
+        tmp        =  tmp.replace(")","")                
+        nstar_tup  = tmp.split(',') #nstar_tup is of length 2        
+        is_in_rel  = nstar_pointer_value_get(state, nstar_tup[0], nstar_tup[1])        
+        if is_in_rel:
+            inv  = inv.replace(r, 'True')
+        else:
+            inv  = inv.replace(r, 'False')                
+    return inv
+
+
+def preprop_inv_quick(inv,state):
+    #print 'b4',inv
+    inv.root = preprop_nstar_quick(inv.root,state)
+    #print 'after',inv
+    for t in inv.subtrees:
+        t.root = preprop_nstar_quick(t.root,state)        
+    return inv
+
+
+
+def eval_inv_quick(cond,state):
+    #print 'welcome to eval_inv_quick'
+    #inv = preprop_inv_quick(cond,state)            
+    res =  eval_do(state,cond)
     #print 'eval_cond', inv, cond,res
     return res
