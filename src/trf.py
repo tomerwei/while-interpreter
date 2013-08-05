@@ -326,10 +326,9 @@ if __name__ == '__main__':
             last_st[INV] = formula
             e_loop = chk_inv_on_general_stmt( last_st )            
             if not e_loop:
-                holds_counter+=1
-                print 'Does inv hold?: ', FolFormula.reconstruct(formula), str(e_loop), total_counter, holds_counter
-            
-            if total_counter > 100000:
+                holds_counter += 1
+                print 'Does inv hold?: ', FolFormula.reconstruct(formula), str(e_loop), total_counter, holds_counter            
+            if total_counter > 50000:
                 break
                         
     pr.disable()

@@ -15,7 +15,7 @@ def general_stmt(stmt,state):
 
    
     if curStmt == 'while':
-        return while_stmt(stmt, state)
+        while_stmt(stmt, state)
     elif curStmt == 'if':
         if_stmt(stmt, state)
     elif curStmt == ';':
@@ -83,21 +83,46 @@ def while_stmt(stmt,state):
     #the invariant I is in between here
     inv = inv_get(state)
     #print 'the invariant I:=', inv
-    while_body   = stmt.subtrees[-1]    
-    cond_chk     = eval_cond(while_cond,state)
-    if cond_chk:
-        does_inv_hold_in_loop_start = eval_inv(inv,state)        
-        if ~does_inv_hold_in_loop_start:
-            general_stmt(while_body,state)
-            #checking invariant
-            does_inv_hold_in_loop_end = eval_inv(inv,state)
-            print 'does invariant hold in the end of loop?', does_inv_hold_in_loop_end
-            if ~does_inv_hold_in_loop_end:
-                return False       
-            while_stmt(stmt,state)
-        else:
-            print 'does invariant hold at the start of loop?', does_inv_hold_in_loop_start
-            
+    while_body     =  stmt.subtrees[-1]    
+    cond_chk       =  eval_cond(while_cond,state)    
+    mapping_list   =  []
+    nstar_list     =  []
+        
+    while True:        
+        cond_chk     =  eval_cond(while_cond,state)
+        if not cond_chk:
+            map_copy   = deepcopy( interpretation_mapping_get(state) )
+            nstar_copy = nstar_relation_map_get(state)
+            mapping_list.append(map_copy)
+            nstar_list.append(nstar_copy)            
+            break
+        
+        #state_collection.append( state )
+        does_inv_hold_in_loop_start = eval_inv( inv,state )
+        
+        map_copy   = deepcopy( interpretation_mapping_get(state) )
+        nstar_copy = nstar_relation_map_get(state)
+        mapping_list.append(map_copy)        
+        nstar_list.append(nstar_copy)        
+        
+        print 'does invariant hold at the start of loop?', does_inv_hold_in_loop_start        
+        general_stmt(while_body,state)
+        #checking invariant
+        does_inv_hold_in_loop_end = eval_inv( inv,state )                                    
+        print 'does invariant hold at the end of loop?', does_inv_hold_in_loop_end        
+        #if not does_inv_hold_in_loop_end 
+        
+    
+    
+    print 'how many states collected', len(mapping_list)
+    
+    for i in mapping_list:
+        print i
+        
+    for j in nstar_list:
+        print j    
+        
+    
 
 
 # x := y
@@ -133,7 +158,7 @@ def p_next(state,n_ptr,s,t):
     result      =  p_next_plus(state,n_ptr,s,t)
     if result:
         c_nodes   =  concrete_nodes_get(state)
-        #print 's and t are different' , s ,t 
+        #print 's and t are different' , s ,t return 
         for gamma in c_nodes:
             lhs       =  p_next_plus(state,n_ptr,s,gamma)
             rhs       =  nstar_concrete_value_get(state,t,gamma)            
